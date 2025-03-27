@@ -4,7 +4,7 @@ import json
 import os 
 from colorama import Fore, Style
 
-DATA_DIR = "data/heartRate"
+DATA_DIR = "data/"
 os.makedirs(DATA_DIR, exist_ok=True)  # Ensure directory exists
 
 def fetch_heart_rate_history():
@@ -16,13 +16,13 @@ def fetch_heart_rate_history():
         print("\nFetching real-time heart rate data. Press Ctrl+C to stop.\n")
         
         today = datetime.today()
-        start_date = today - timedelta(days=100)
+        start_date = today - timedelta(days=75)
 
         heart_rate_data = {}
         
         print("Fetching heart rate history from", start_date.strftime("%Y-%m-%d"), "to", today.strftime("%Y-%m-%d"))
 
-        for i in range(101):  # Including today (0 to 100 days back)
+        for i in range(76):  # Including today (0 to 100 days back)
             date = (today - timedelta(days=i)).strftime("%Y-%m-%d")
             try:
                 hr_data = client.get_heart_rates(date)  # Fetch heart rate data
