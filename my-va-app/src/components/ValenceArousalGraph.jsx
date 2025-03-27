@@ -224,10 +224,6 @@ const ValenceArousalGraph = ({ onDataClick }) => {
     ctx.fillText('Positive Valence', centerX + radius + 100, centerY);
 
     // Draw emotion labels
-    ctx.font = '14px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
     emotions.forEach(emotion => {
       const angle = Math.atan2(emotion.arousal, emotion.valence);
       const distance = Math.sqrt(emotion.valence * emotion.valence + emotion.arousal * emotion.arousal);
@@ -235,14 +231,11 @@ const ValenceArousalGraph = ({ onDataClick }) => {
       const x = centerX + (scaledDistance * Math.cos(angle));
       const y = centerY - (scaledDistance * Math.sin(angle));
 
-      // Draw emotion point
-      ctx.beginPath();
-      ctx.arc(x, y, 5, 0, 2 * Math.PI);
-      ctx.fillStyle = getEmotionColor(emotion.name);
-      ctx.fill();
-
-      // Draw emotion label with offset
+      // Draw emotion label
       ctx.fillStyle = '#374151';
+      ctx.font = '14px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
       const labelOffset = 15;
       const labelX = x + (Math.cos(angle) * labelOffset);
       const labelY = y - (Math.sin(angle) * labelOffset);
