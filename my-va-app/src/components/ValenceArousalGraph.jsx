@@ -46,12 +46,17 @@ const ValenceArousalGraph = ({ onDataClick }) => {
   // Function to round time to nearest 2-minute interval
   const roundToNearestTwoMinutes = (timestamp) => {
     const date = new Date(timestamp);
+    // Add two hours (7200000 milliseconds)
+    date.setTime(date.getTime() + 7200000);
     const minutes = date.getMinutes();
     const roundedMinutes = Math.floor(minutes / 2) * 2;
     date.setMinutes(roundedMinutes);
     date.setSeconds(0);
     date.setMilliseconds(0);
-    return date.getTime();
+    
+    // Convert to Madrid timezone
+    const madridDate = new Date(date.toLocaleString('en-US', { timeZone: 'Europe/Madrid' }));
+    return madridDate.toISOString();
   };
 
   // Function to save data to file
