@@ -23,18 +23,19 @@ def fetch_garmin_health_data():
     """Fetch health data from today back to 75 days and save to JSON."""
     # Authenticate and get Garmin client
     client = login_to_garmin()
+    days = 100
 
     if client:
         print("\nFetching Garmin health data. Press Ctrl+C to stop.\n")
 
         today = datetime.today()
-        start_date = today - timedelta(days=75)
+        start_date = today - timedelta(days=days)
 
         health_data = {}
 
         print("Fetching health data from", start_date.strftime("%Y-%m-%d"), "to", today.strftime("%Y-%m-%d"))
 
-        for i in range(76):  # Including today (0 to 75 days back)
+        for i in range(days + 1):  # Including today (0 to 75 days back)
             date = (today - timedelta(days=i)).strftime("%Y-%m-%d")
             try:
                 # Fetch all required metrics
