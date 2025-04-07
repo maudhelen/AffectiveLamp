@@ -335,6 +335,12 @@ def switch(api, i):
                     f"api.get_body_battery('{startdate.isoformat()}, {today.isoformat()}')",
                     api.get_body_battery(startdate.isoformat(), today.isoformat()),
                 )
+                body_battery_data = api.get_body_battery(startdate.isoformat(), today.isoformat())
+                
+                with open("body_battery.json", "w") as f:
+                    json.dump(body_battery_data, f, indent=4)
+                print("Body Battery data saved to body_battery.json")
+
                 # Get daily body battery event data for 'YYYY-MM-DD'
                 display_json(
                     f"api.get_body_battery_events('{startdate.isoformat()}, {today.isoformat()}')",
