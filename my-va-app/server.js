@@ -51,8 +51,8 @@ app.post('/api/save-emotion', (req, res) => {
 
   // Append data to file
   try {
-    // Replace only the dot after seconds with a colon
-    const formattedData = data.replace(/(\d{2})\.([\d]{3}Z)/, '$1:$2');
+    // Format timestamp to match the desired format (YYYY-MM-DDTHH:MM:00Z)
+    const formattedData = data.replace(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}):\d{2}(\.\d{3}Z)/, '$1:00Z');
     
     fs.appendFileSync(filePath, formattedData, 'utf8');
     console.log('Successfully wrote data:', formattedData);
