@@ -51,13 +51,17 @@ app.post('/api/save-emotion', (req, res) => {
 
   // Append data to file
   try {
-    fs.appendFileSync(filePath, data, 'utf8');
-    console.log('Successfully wrote data:', data);
+    // Replace only the dot after seconds with a colon
+    const formattedData = data.replace(/(\d{2})\.([\d]{3}Z)/, '$1:$2');
+    
+    fs.appendFileSync(filePath, formattedData, 'utf8');
+    console.log('Successfully wrote data:', formattedData);
     console.log('To file:', filePath);
     res.json({ success: true, filePath });
-  } catch (err) {
-    console.error('Error writing to file:', err);
-    res.status(500).json({ error: 'Failed to save data', details: err.message });
+  } 
+  catch (err) {
+        console.error('Error writing to file:', err);
+        res.status(500).json({ error: 'Failed to save data', details: err.message });
   }
 });
 

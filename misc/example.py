@@ -378,10 +378,15 @@ def switch(api, i):
                 )
             elif i == "c":
                 # Get sleep data for 'YYYY-MM-DD'
+                sleep_data = api.get_sleep_data(today.isoformat())
                 display_json(
                     f"api.get_sleep_data('{today.isoformat()}')",
-                    api.get_sleep_data(today.isoformat()),
+                    sleep_data
                 )
+                 # Save sleep data to JSON file
+                with open('../sleep.json', 'w') as f:
+                    json.dump(sleep_data, f, indent=4)
+                print(f"\nSleep data saved to sleep.json")
             elif i == "d":
                 # Get stress data for 'YYYY-MM-DD'
                 display_json(
@@ -646,10 +651,16 @@ def switch(api, i):
 
             elif i == "x":
                 # Get Heart Rate Variability (hrv) data
+                # Get sleep data for 'YYYY-MM-DD'
+                hrv_data = api.get_hrv_data(today.isoformat())
                 display_json(
-                    f"api.get_hrv_data({today.isoformat()})",
-                    api.get_hrv_data(today.isoformat()),
+                    f"api.get_hrv_data('{today.isoformat()}')",
+                    hrv_data
                 )
+                 # Save sleep data to JSON file
+                with open('../hrv_data.json', 'w') as f:
+                    json.dump(hrv_data, f, indent=4)
+                print(f"\nHRV data saved to hrv_data.json")
 
             elif i == "z":
                 # Get progress summary
