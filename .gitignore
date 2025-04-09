@@ -6,3 +6,4 @@ data/*
 api/__pycache__/*
 __pycache__/health_data.cpython-312.pyc
 data_processing/__pycache__/health_data.cpython-312.pyc
+/plots/*

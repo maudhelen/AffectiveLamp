@@ -6,6 +6,7 @@ Fetches Garmin health data including:
 - Sleep Score
 - Body Battery
 - SpO2
+- HRV Average
 
 Saves the data as `garmin_health_data.json`
 """
@@ -66,6 +67,9 @@ def fetch_garmin_health_data(days = 100):
                 hrv_readings = hrv_data.get("hrvReadings", []) if hrv_data else []
                 hrv_values = {entry["readingTimeGMT"]: entry["hrvValue"] for entry in hrv_readings} if hrv_readings else None
                 
+                # Get HRV average from the summary
+                hrv_avg = hrv_data.get("hrvSummary", {}).get("lastNightAvg") if hrv_data else None
+                
                 # Store data for the date
                 health_data[date] = {
                     "heart_rate": heart_rate_values if heart_rate_values else None,
@@ -75,6 +79,7 @@ def fetch_garmin_health_data(days = 100):
                     "body_battery": body_battery_data if body_battery_data else None,
                     "spo2": sp02_data if sp02_data else None,
                     "hrv": hrv_values if hrv_values else None,
+                    "hrv_avg": hrv_avg
                 }
 
                 # If we have a sleep score, store it for the next day as well

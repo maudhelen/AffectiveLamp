@@ -664,7 +664,7 @@ def switch(api, i):
                     hrv_data
                 )
                  # Save sleep data to JSON file
-                with open('../hrv_data.json', 'w') as f:
+                with open('hrv_data.json', 'w') as f:
                     json.dump(hrv_data, f, indent=4)
                 print(f"\nHRV data saved to hrv_data.json")
 
