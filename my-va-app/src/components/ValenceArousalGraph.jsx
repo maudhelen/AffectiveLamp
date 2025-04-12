@@ -54,9 +54,14 @@ const ValenceArousalGraph = ({ onDataClick }) => {
     date.setSeconds(0);
     date.setMilliseconds(0);
     
-    // Convert to Madrid timezone
-    const madridDate = new Date(date.toLocaleString('en-US', { timeZone: 'Europe/Madrid' }));
-    return madridDate.toISOString();
+    // Convert to Marrakech timezone (subtract 1 hour as Morocco doesn't observe DST)
+    const marrakechDate = new Date(date.toLocaleString('en-US', { timeZone: 'Africa/Casablanca' }));
+    marrakechDate.setHours(marrakechDate.getHours() - 1);
+    return marrakechDate.toISOString();
+
+    // For Madrid timezone (when needed):
+    // const madridDate = new Date(date.toLocaleString('en-US', { timeZone: 'Europe/Madrid' }));
+    // return madridDate.toISOString();
   };
 
   // Function to save data to file
