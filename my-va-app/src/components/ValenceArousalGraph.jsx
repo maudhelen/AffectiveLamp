@@ -45,23 +45,40 @@ const ValenceArousalGraph = ({ onDataClick }) => {
 
   // Function to round time to nearest 2-minute interval
   const roundToNearestTwoMinutes = (timestamp) => {
+    // Create date object from timestamp
     const date = new Date(timestamp);
-    // Add two hours (7200000 milliseconds)
-    date.setTime(date.getTime() + 7200000);
-    const minutes = date.getMinutes();
-    const roundedMinutes = Math.floor(minutes / 2) * 2;
+    
+    // Round to nearest 2 minutes
+    const currentMinutes = date.getMinutes();
+    const roundedMinutes = Math.floor(currentMinutes / 2) * 2;
     date.setMinutes(roundedMinutes);
     date.setSeconds(0);
     date.setMilliseconds(0);
     
-    // Convert to Marrakech timezone (subtract 1 hour as Morocco doesn't observe DST)
-    const marrakechDate = new Date(date.toLocaleString('en-US', { timeZone: 'Africa/Casablanca' }));
-    marrakechDate.setHours(marrakechDate.getHours() - 1);
-    return marrakechDate.toISOString();
-
-    // For Madrid timezone (when needed):
-    // const madridDate = new Date(date.toLocaleString('en-US', { timeZone: 'Europe/Madrid' }));
-    // return madridDate.toISOString();
+    // Convert to Madrid timezone
+    const options = {
+      timeZone: 'Europe/Madrid',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    };
+    
+    // Format the date in Madrid timezone
+    const madridTime = date.toLocaleString('en-US', options);
+    
+    // Create a new date object from the Madrid time string
+    const [datePart, timePart] = madridTime.split(', ');
+    const [month, day, year] = datePart.split('/');
+    const [hours, minutes, seconds] = timePart.split(':');
+    
+    // Create Madrid date
+    const madridDate = new Date(Date.UTC(year, month - 1, day, hours, minutes, seconds));
+    
+    return madridDate.toISOString();
   };
 
   // Function to save data to file
