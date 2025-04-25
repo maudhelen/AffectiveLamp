@@ -1,12 +1,74 @@
-# React + Vite
+# Affective Lamp VA App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A web application for collecting and managing emotion data, designed to interface with an affective lamp system.
 
-Currently, two official plugins are available:
+## Technology Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Frontend**: React.js (v18.2.0) with Vite
+- **Backend**: Node.js with Express.js (v4.18.3)
+- **Styling**: Tailwind CSS
+- **Development Tools**: 
+  - ESLint for code quality
+  - PostCSS for CSS processing
+  - TypeScript support
 
-## Expanding the ESLint configuration
+## Architecture
 
-If you are developing a production application, we recommend using TypeScript and enable type-aware lint rules. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+The application follows a client-server architecture:
+- React frontend for user interface
+- Express backend for data management
+- RESTful API design
+- Static file serving for the frontend application
+
+## Data Management
+
+The system uses CSV-based data storage with the following structure:
+- Timestamp
+- Valence
+- Arousal
+- Emotion
+- Color parameters (hue, saturation, brightness)
+
+Features:
+- Automatic file creation and header management
+- Data persistence through file system operations
+- Real-time emotion data collection
+- Data retrieval capabilities
+
+## Development
+
+### Prerequisites
+- Node.js
+- npm
+
+### Installation
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+### Running the Application
+Start the development server:
+```bash
+npm run dev
+```
+This will concurrently run:
+- Vite development server (frontend)
+- Express server (backend)
+
+### Building for Production
+```bash
+npm run build
+```
+
+## API Endpoints
+
+- `POST /api/save-emotion`: Save emotion data
+- `GET /api/emotion-data`: Retrieve emotion data
+
+## Error Handling
+The application includes comprehensive error handling and logging for:
+- File system operations
+- Data validation
+- Server operations
