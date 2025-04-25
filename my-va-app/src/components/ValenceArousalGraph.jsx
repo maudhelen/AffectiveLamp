@@ -241,14 +241,14 @@ const ValenceArousalGraph = ({ onDataClick }) => {
     ctx.textBaseline = 'middle';
     
     // Arousal labels
-    ctx.fillText('High Arousal', centerX, centerY - radius - 20);
-    ctx.fillText('Low Arousal', centerX, centerY + radius + 20);
+    ctx.fillText('Active', centerX, centerY - radius - 20);
+    ctx.fillText('Calm', centerX, centerY + radius + 20);
     
     // Valence labels
     ctx.textAlign = 'left';
-    ctx.fillText('Negative Valence', centerX - radius - 100, centerY);
+    ctx.fillText('Negative', centerX - radius - 50, centerY);
     ctx.textAlign = 'right';
-    ctx.fillText('Positive Valence', centerX + radius + 100, centerY);
+    ctx.fillText('Positive', centerX + radius + 50, centerY);
 
     // Draw emotion labels
     emotions.forEach(emotion => {
