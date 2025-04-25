@@ -25,7 +25,7 @@ def process_garmin_data(garmin_data):
 
         # Convert heart rate timestamps to UTC
         hr_data = {
-            datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"): hr
+            datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ"): hr
             for ts, hr in heart_rate_values
         }
 
@@ -34,7 +34,7 @@ def process_garmin_data(garmin_data):
             if not data or key not in data or data[key] is None:
                 return {}
             return {
-                datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"): value
+                datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ"): value
                 for ts, value in data[key]
             }
 
@@ -87,10 +87,10 @@ def create_dataframe(processed_data):
 
     # Add local time column
     df['local_time'] = df['timestamp'].apply(lambda x: 
-        datetime.strptime(x, "%Y-%m-%dT%H:%M:%SZ")
+        datetime.strptime(x, "%Y-%m-%d %H:%M:%SZ")
         .replace(tzinfo=timezone.utc)
         .astimezone(pytz.timezone('Europe/Madrid')) 
-        .strftime("%Y-%m-%dT%H:%M:%S")
+        .strftime("%Y-%m-%d %H:%M:%S")
     )
 
     # Print dataset info

@@ -92,6 +92,11 @@ def main():
     manual_df = load_manual_data(manual_data_path)
     health_data = load_health_data(health_data_path)
     
+    # make sure all timestamps are in format YYYY-MM-DD HH:MM:SS
+    app_data['timestamp'] = pd.to_datetime(app_data['timestamp']).dt.strftime('%Y-%m-%d %H:%M:%S')
+    manual_df['timestamp'] = pd.to_datetime(manual_df['timestamp']).dt.strftime('%Y-%m-%d %H:%M:%S')
+    health_data['timestamp'] = pd.to_datetime(health_data['timestamp']).dt.strftime('%Y-%m-%d %H:%M:%S')
+    
     # Combine emotion data
     combined_df = combine_emotion_data(app_data, manual_df)
     
