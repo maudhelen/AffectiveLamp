@@ -374,6 +374,17 @@ const ValenceArousalGraph = ({ onDataClick }) => {
     const radius = Math.min(width, height) / 2 - 50;
     const displayRadius = radius * 0.7;
 
+    // Calculate distance from center
+    const distanceFromCenter = Math.sqrt(
+      Math.pow(x - centerX, 2) + 
+      Math.pow(y - centerY, 2)
+    );
+
+    // Only process click if it's within the circle's radius
+    if (distanceFromCenter > radius) {
+      return; // Ignore clicks outside the circle
+    }
+
     // Convert click coordinates to relative position from center
     const relativeX = (x - centerX) / displayRadius;
     const relativeY = -(y - centerY) / displayRadius; // Invert Y for correct arousal
