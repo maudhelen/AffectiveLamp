@@ -98,7 +98,7 @@ def create_datasets(data):
     valence_data = valence_data.drop(columns=[col for col in valence_columns_to_drop if col in valence_data.columns])
     
     # Drop specified columns for arousal
-    arousal_columns_to_drop = ['stress', 'body_battery', 'sleep_score', 'time_Evening', 'time_Night']
+    arousal_columns_to_drop = ['timestamp', 'stress', 'body_battery', 'sleep_score', 'time_Evening', 'time_Night']
     arousal_data = arousal_data.drop(columns=[col for col in arousal_columns_to_drop if col in arousal_data.columns])
     
     return valence_data, arousal_data
