@@ -50,7 +50,7 @@ function App() {
     fetchLatestData();
   }, []);
 
-  const handleDataClick = (data) => {
+  const handleDataClick = async (data) => {
     // Format the timestamp to match CSV format (YYYY-MM-DDTHH:MM:00)
     const date = new Date(data.timestamp);
     const formattedTimestamp = date.toISOString().replace(/:\d{2}\.\d{3}Z$/, ':00');
@@ -65,6 +65,29 @@ function App() {
       valence: data.valence.toFixed(2),
       arousal: data.arousal.toFixed(2)
     });
+
+    // Send VA coordinates to lamp
+    try {
+      const response = await fetch('/api/control-lamp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          valence: data.valence,
+          arousal: data.arousal
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to control lamp');
+      }
+
+      const result = await response.json();
+      console.log('Lamp control response:', result);
+    } catch (error) {
+      console.error('Error controlling lamp:', error);
+    }
   };
 
   return (

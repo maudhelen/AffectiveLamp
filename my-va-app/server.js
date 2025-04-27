@@ -1,6 +1,7 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const { spawn } = require('child_process');
 
 const app = express();
 
@@ -8,6 +9,34 @@ app.use(express.json());
 
 // Serve the React app
 app.use(express.static(path.join(__dirname, 'dist')));
+
+// Endpoint to control the lamp
+app.post('/api/control-lamp', (req, res) => {
+  const { valence, arousal } = req.body;
+  console.log('Received lamp control request:', { valence, arousal });
+  
+  // Path to the change_color.py script
+  const scriptPath = path.join(__dirname, '..', 'light', 'change_color.py');
+  
+  // Spawn a Python process to run the script
+  const pythonProcess = spawn('python3', [scriptPath, '--va', valence, arousal]);
+  
+  pythonProcess.stdout.on('data', (data) => {
+    console.log(`Python stdout: ${data}`);
+  });
+  
+  pythonProcess.stderr.on('data', (data) => {
+    console.error(`Python stderr: ${data}`);
+  });
+  
+  pythonProcess.on('close', (code) => {
+    if (code === 0) {
+      res.json({ success: true, message: 'Lamp color updated successfully' });
+    } else {
+      res.status(500).json({ success: false, message: 'Failed to update lamp color' });
+    }
+  });
+});
 
 // Endpoint to save emotion data
 app.post('/api/save-emotion', (req, res) => {
