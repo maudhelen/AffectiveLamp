@@ -12,6 +12,7 @@ Saves the data as `garmin_health_data.json`
 """
 import os
 import sys
+import argparse
 
 # Get the root directory path
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -33,19 +34,26 @@ print(os.getcwd())
 os.makedirs(DATA_DIR, exist_ok=True)  # Ensure directory exists
 jsonfile = "garmin_health_data.json"
 
-def fetch_garmin_health_data(days = 75):
+def fetch_garmin_health_data(days=75, target_date=None):
     # Authenticate and get Garmin client
     client = login_to_garmin()
 
     if client:
         print("\nFetching Garmin health data. Press Ctrl+C to stop.\n")
 
-        today = datetime.today()
-        start_date = today - timedelta(days=days)
+        if target_date:
+            # If target_date is provided, fetch only that date
+            today = datetime.strptime(target_date, "%Y-%m-%d")
+            start_date = today
+            days = 0  # Only fetch one day
+            print(f"Fetching data for specific date: {target_date}")
+        else:
+            # Otherwise fetch the last X days
+            today = datetime.today()
+            start_date = today - timedelta(days=days)
+            print(f"Fetching health data from {start_date.strftime('%Y-%m-%d')} to {today.strftime('%Y-%m-%d')}")
 
         health_data = {}
-
-        print("Fetching health data from", start_date.strftime("%Y-%m-%d"), "to", today.strftime("%Y-%m-%d"))
 
         for i in range(days + 1):
             date = (today - timedelta(days=i)).strftime("%Y-%m-%d")
@@ -118,4 +126,10 @@ def fetch_garmin_health_data(days = 75):
         print("Could not log in to Garmin. Exiting.")
 
 if __name__ == "__main__":
-    fetch_garmin_health_data()
+    # Add command line argument for target date
+    parser = argparse.ArgumentParser(description='Fetch Garmin health data')
+    parser.add_argument('--target_date', type=str, help='Specific date to fetch data for (YYYY-MM-DD)')
+    parser.add_argument('--days', type=int, default=75, help='Number of days to fetch (default: 75)')
+    args = parser.parse_args()
+    
+    fetch_garmin_health_data(days=args.days, target_date=args.target_date)

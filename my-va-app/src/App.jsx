@@ -3,6 +3,8 @@ import ValenceArousalGraph from './components/ValenceArousalGraph'
 
 function App() {
   const [clickData, setClickData] = useState(null);
+  const [predictionData, setPredictionData] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Function to fetch the latest data from the server
   const fetchLatestData = async () => {
@@ -90,17 +92,63 @@ function App() {
     }
   };
 
+  const handleLoadPrediction = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/predict-emotion', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get prediction');
+      }
+
+      const result = await response.json();
+      setPredictionData(result);
+      
+      // Show prediction on VA space
+      handleDataClick({
+        timestamp: result.timestamp,
+        valence: result.predicted_valence,
+        arousal: result.predicted_arousal,
+        closestEmotion: {
+          name: result.predicted_emotion,
+          valence: result.predicted_valence,
+          arousal: result.predicted_arousal
+        }
+      });
+    } catch (error) {
+      console.error('Error getting prediction:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="h-screen w-screen bg-white flex items-center justify-center">
       <div className="max-w-4xl w-full px-4">
         <h1 className="text-3xl font-bold text-center mb-8 text-gray-800">Affective Lamp - Emotion Tracker</h1>
         
-        <div className="bg-white rounded-xl shadow-lg p-8">
+        <div className="bg-white rounded-xl shadow-lg p-8 relative">
+          {/* Load Prediction Button */}
+          <button
+            onClick={handleLoadPrediction}
+            disabled={isLoading}
+            className="absolute top-4 right-4 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoading ? 'Loading...' : 'Load Prediction'}
+          </button>
+
           <ValenceArousalGraph onDataClick={handleDataClick} />
           
           {clickData && (
             <div className="mt-8 p-6 bg-gray-50 rounded-lg">
-              <h2 className="text-xl font-semibold mb-4 text-gray-800">Last Recorded Emotion</h2>
+              <h2 className="text-xl font-semibold mb-4 text-gray-800">
+                {predictionData ? 'Predicted Emotion' : 'Last Recorded Emotion'}
+              </h2>
               <div className="flex items-center justify-between space-x-8">
                 <div className="flex-1">
                   <p className="text-sm text-gray-500">Time</p>
@@ -119,6 +167,14 @@ function App() {
                   <p className="font-medium text-gray-800">{clickData.arousal.toFixed(2)}</p>
                 </div>
               </div>
+              
+              {predictionData && (
+                <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-gray-600">
+                    Is this prediction correct? Click on the VA space to confirm or adjust.
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>

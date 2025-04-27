@@ -10,32 +10,158 @@ app.use(express.json());
 // Serve the React app
 app.use(express.static(path.join(__dirname, 'dist')));
 
-// Endpoint to control the lamp
-app.post('/api/control-lamp', (req, res) => {
-  const { valence, arousal } = req.body;
-  console.log('Received lamp control request:', { valence, arousal });
-  
-  // Path to the change_color.py script
-  const scriptPath = path.join(__dirname, '..', 'light', 'change_color.py');
-  
-  // Spawn a Python process to run the script
-  const pythonProcess = spawn('python3', [scriptPath, '--va', valence, arousal]);
-  
-  pythonProcess.stdout.on('data', (data) => {
-    console.log(`Python stdout: ${data}`);
-  });
-  
-  pythonProcess.stderr.on('data', (data) => {
-    console.error(`Python stderr: ${data}`);
-  });
-  
-  pythonProcess.on('close', (code) => {
-    if (code === 0) {
-      res.json({ success: true, message: 'Lamp color updated successfully' });
-    } else {
-      res.status(500).json({ success: false, message: 'Failed to update lamp color' });
+// Hardcoded timestamp for testing
+const HARDCODED_TIMESTAMP = '2025-04-27T16:46:00Z';
+
+// Function to round timestamp down to nearest even minute
+function roundTimestamp(timestamp) {
+    const date = new Date(timestamp);
+    const minutes = date.getMinutes();
+    const roundedMinutes = Math.floor(minutes / 2) * 2;
+    date.setMinutes(roundedMinutes);
+    date.setSeconds(0);
+    date.setMilliseconds(0);
+    return date.toISOString();
+}
+
+// Endpoint for emotion prediction
+app.post('/api/predict-emotion', async (req, res) => {
+    try {
+        // Get timestamp from request or use hardcoded one
+        const timestamp = req.body.timestamp ? roundTimestamp(req.body.timestamp) : HARDCODED_TIMESTAMP;
+        console.log(`Using timestamp: ${timestamp}`);
+
+        // Run the Python script to predict emotion
+        const pythonScript = path.join(__dirname, '..', 'models', 'predict_emotion.py');
+        const pythonProcess = spawn('python3', [pythonScript, timestamp], {
+            cwd: path.join(__dirname, '..')
+        });
+
+        let stdout = '';
+        let stderr = '';
+
+        pythonProcess.stdout.on('data', (data) => {
+            stdout += data.toString();
+        });
+
+        pythonProcess.stderr.on('data', (data) => {
+            stderr += data.toString();
+        });
+
+        const exitCode = await new Promise((resolve, reject) => {
+            pythonProcess.on('close', (code) => {
+                resolve(code);
+            });
+            pythonProcess.on('error', (err) => {
+                reject(err);
+            });
+        });
+
+        if (exitCode !== 0) {
+            return res.status(500).json({ error: 'Error running prediction script', details: stderr });
+        }
+
+        // Parse the prediction results
+        const prediction = JSON.parse(stdout);
+        console.log('Prediction results:', prediction);
+
+        // Change the light color based on VA values
+        const lightScript = path.join(__dirname, '..', 'light', 'change_color.py');
+        const lightProcess = spawn('python3', [lightScript, prediction.valence.toString(), prediction.arousal.toString()], {
+            cwd: path.join(__dirname, '..')
+        });
+
+        let lightStdout = '';
+        let lightStderr = '';
+
+        lightProcess.stdout.on('data', (data) => {
+            lightStdout += data.toString();
+        });
+
+        lightProcess.stderr.on('data', (data) => {
+            lightStderr += data.toString();
+        });
+
+        const lightExitCode = await new Promise((resolve, reject) => {
+            lightProcess.on('close', (code) => {
+                resolve(code);
+            });
+            lightProcess.on('error', (err) => {
+                reject(err);
+            });
+        });
+
+        if (lightExitCode !== 0) {
+            return res.status(500).json({ error: 'Error controlling light', details: lightStderr });
+        }
+
+        // Return both the prediction and the emotion label
+        res.json({
+            valence: prediction.valence,
+            arousal: prediction.arousal,
+            emotion: prediction.emotion
+        });
+
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
-  });
+});
+
+// Endpoint to control the lamp
+app.post('/api/control-lamp', async (req, res) => {
+    try {
+        const { valence, arousal } = req.body;
+        
+        // Validate input
+        if (typeof valence !== 'number' || typeof arousal !== 'number') {
+            return res.status(400).json({ error: 'Valence and arousal must be numbers' });
+        }
+
+        // Path to the change_color.py script
+        const scriptPath = path.join(__dirname, '..', 'light', 'change_color.py');
+        
+        // Run the Python script using spawn
+        const pythonProcess = spawn('python3', [scriptPath, valence.toString(), arousal.toString()], {
+            cwd: path.join(__dirname, '..')
+        });
+
+        let stdout = '';
+        let stderr = '';
+
+        // Collect stdout
+        pythonProcess.stdout.on('data', (data) => {
+            stdout += data.toString();
+        });
+
+        // Collect stderr
+        pythonProcess.stderr.on('data', (data) => {
+            stderr += data.toString();
+        });
+
+        // Wait for the process to complete
+        const exitCode = await new Promise((resolve, reject) => {
+            pythonProcess.on('close', (code) => {
+                resolve(code);
+            });
+            pythonProcess.on('error', (err) => {
+                reject(err);
+            });
+        });
+
+        if (exitCode !== 0) {
+            return res.status(500).json({ 
+                error: 'Failed to control light', 
+                details: stderr || 'Python script failed'
+            });
+        }
+
+        res.json({ success: true, message: 'Lamp color updated successfully' });
+
+    } catch (error) {
+        console.error('Error controlling lamp:', error);
+        res.status(500).json({ error: 'Failed to control lamp', details: error.message });
+    }
 });
 
 // Endpoint to save emotion data

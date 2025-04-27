@@ -13,7 +13,10 @@ def setup_data_path():
 def load_data(DATA_DIR):
     """Load and preprocess the data."""
     data = pd.read_csv(DATA_DIR + '/merged/labelled_data.csv')
+    # Convert timestamp to datetime, handling timezone-aware timestamps
     data['timestamp'] = pd.to_datetime(data['timestamp'])
+    if data['timestamp'].dt.tz is None:
+        data['timestamp'] = data['timestamp'].dt.tz_localize('UTC')
     return data
 
 def handle_missing_values(data):
@@ -27,7 +30,7 @@ def handle_missing_values(data):
                                     labels=['Poor', 'Fair', 'Good', 'Excellent'])
     
     # Fill missing HRV values based on sleep score tiers
-    data['hrv_avg'] = data['hrv_avg'].fillna(data.groupby('sleep_score_tier')['hrv_avg'].transform('mean'))
+    data['hrv_avg'] = data['hrv_avg'].fillna(data.groupby('sleep_score_tier', observed=True)['hrv_avg'].transform('mean'))
     
     # Fill missing SpO2 values with median
     data['spo2'] = data['spo2'].fillna(data['spo2'].median())
@@ -40,7 +43,7 @@ def handle_missing_values(data):
                                 ordered=False)
     
     # Fill missing body battery values based on time of day
-    data['body_battery'] = data['body_battery'].fillna(data.groupby('time_of_day')['body_battery'].transform('mean'))
+    data['body_battery'] = data['body_battery'].fillna(data.groupby('time_of_day', observed=True)['body_battery'].transform('mean'))
     
     # Drop any remaining missing values
     data = data.dropna()

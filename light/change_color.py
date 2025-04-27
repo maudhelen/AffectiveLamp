@@ -1,86 +1,108 @@
-import requests
 import os
-import math
-import argparse
-from dotenv import load_dotenv
-from emotion_colors import get_emotion_color
+import sys
+import json
+import requests
 
-# Load environment variables
-load_dotenv()
+# Get the root directory path
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Add root directory to Python path
+sys.path.append(ROOT_DIR)
 
-# Get credentials from .env file
-bridge_ip = os.getenv('BRIDGE_IP')
-username = os.getenv('USERNAME')
-light_id = 1  # ID of your light (e.g., 1, 2, 3)
+# Set working directory to root
+os.chdir(ROOT_DIR)
 
-def set_va_color(valence, arousal):
-    """
-    Set the light color based on Valence-Arousal coordinates
-    
-    Args:
-        valence (float): Valence value (-1.0 to 1.0)
-        arousal (float): Arousal value (0.0 to 1.0)
-    """
-    # Calculate distance from origin (0,0) for brightness
-    distance = math.sqrt(valence**2 + arousal**2)
-    normalized_distance = min(distance / math.sqrt(2), 1.0)  # Normalize to 0-1
-    brightness = int(150 + (normalized_distance * 104))  # Scale to 150-254
-    
-    # Determine quadrant and set color
-    if valence >= 0 and arousal >= 0.5:  # Q1: Happy/Excited
-        xy = [0.409, 0.518]  # Green
-    elif valence < 0 and arousal >= 0.5:  # Q2: Angry/Stressed
-        xy = [0.675, 0.322]  # Red
-    elif valence < 0 and arousal < 0.5:  # Q3: Sad/Depressed
-        xy = [0.167, 0.04]   # Blue
-    else:  # Q4: Calm/Relaxed
-        xy = [0.418, 0.486]  # Yellow
-    
-    # Hue API uses xy color, brightness (0–254), on/off
-    url = f"http://{bridge_ip}/api/{username}/lights/{light_id}/state"
-    
-    payload = {
-        "on": True,
-        "bri": brightness,
-        "xy": xy
-    }
-    
-    res = requests.put(url, json=payload)
-    print(f"Setting light to VA coordinates ({valence}, {arousal}): {res.json()}")
+# Load bridge configuration
+bridge_path = os.path.join(ROOT_DIR, 'light', 'bridge.json')
+with open(bridge_path, 'r') as f:
+    bridge_configs = json.load(f)
+    bridge_config = bridge_configs[0]
 
-def set_emotion_color(emotion):
+BRIDGE_IP = bridge_config['internalipaddress']
+USERNAME = bridge_config['id']
+LIGHT_ID = 1  # Default to first light
+
+def get_va_color(valence, arousal):
     """
-    Set the light color based on the given emotion
-    
-    Args:
-        emotion (str): The emotion name (e.g., 'happy', 'sad', 'calm')
+    Get color based on VA values
+    - LALV (Low Arousal Low Valence) = Blue
+    - HALV (High Arousal Low Valence) = Red
+    - HAHV (High Arousal High Valence) = Green
+    - LAHV (Low Arousal High Valence) = Yellow
+    - Center (within 0.3 radius) = White
     """
-    # Get color settings for the emotion
-    color_settings = get_emotion_color(emotion)
+    # Check if values are within 0.3 radius of center
+    if abs(valence) <= 0.3 and abs(arousal) <= 0.3:
+        return {"xy": [0.3127, 0.3290], "bri": 200}
     
-    # Hue API uses xy color, brightness (0–254), on/off
-    url = f"http://{bridge_ip}/api/{username}/lights/{light_id}/state"
+    # High Arousal, High Valence = Green
+    if arousal > 0 and valence > 0:
+        return {"xy": [0.409, 0.518], "bri": 254}
     
-    payload = {
-        "on": True,
-        "bri": color_settings["bri"],
-        "xy": color_settings["xy"]
-    }
+    # High Arousal, Low Valence = Red
+    elif arousal > 0 and valence < 0:
+        return {"xy": [0.675, 0.322], "bri": 254}
     
-    res = requests.put(url, json=payload)
-    print(f"Setting light to {emotion} color: {res.json()}")
+    # Low Arousal, Low Valence = Blue
+    elif arousal < 0 and valence < 0:
+        return {"xy": [0.167, 0.04], "bri": 150}
+    
+    # Low Arousal, High Valence = Yellow
+    elif arousal < 0 and valence > 0:
+        return {"xy": [0.418, 0.486], "bri": 200}
+    
+    # Default to neutral (white) if values are close to 0
+    return {"xy": [0.3127, 0.3290], "bri": 200}
+
+def change_light_color(valence, arousal):
+    """
+    Change the light color based on VA values
+    """
+    try:
+        # Get color settings
+        color_settings = get_va_color(valence, arousal)
+        
+        # Prepare the API request
+        url = f"http://{BRIDGE_IP}/api/{USERNAME}/lights/{LIGHT_ID}/state"
+        data = {
+            "on": True,
+            "xy": color_settings["xy"],
+            "bri": color_settings["bri"],
+            "transitiontime": 10
+        }
+        
+        # Send the request
+        response = requests.put(url, json=data)
+        
+        # Check for errors in the response
+        response_data = response.json()
+        if isinstance(response_data, list) and len(response_data) > 0:
+            if 'error' in response_data[0]:
+                print(f"Error from bridge: {response_data[0]['error']}")
+                return False
+        
+        response.raise_for_status()
+        return True
+        
+    except requests.exceptions.RequestException as e:
+        print(f"Error controlling light: {e}")
+        return False
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        return False
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Control Philips Hue light based on emotion or VA coordinates')
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('--emotion', type=str, help='Emotion name (e.g., happy, sad)')
-    group.add_argument('--va', nargs=2, type=float, metavar=('VALENCE', 'AROUSAL'),
-                      help='Valence-Arousal coordinates (e.g., 0.8 0.8)')
+    if len(sys.argv) != 3:
+        print("Usage: python change_color.py <valence> <arousal>")
+        sys.exit(1)
     
-    args = parser.parse_args()
-    
-    if args.emotion:
-        set_emotion_color(args.emotion)
-    elif args.va:
-        valence, arousal = args.va
-        set_va_color(valence, arousal)
+    try:
+        valence = float(sys.argv[1])
+        arousal = float(sys.argv[2])
+        success = change_light_color(valence, arousal)
+        if not success:
+            print("Failed to change light color")
+            sys.exit(1)
+        sys.exit(0)
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
