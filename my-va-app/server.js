@@ -11,11 +11,21 @@ app.use(express.json());
 // Serve the React app
 app.use(express.static(path.join(__dirname, 'dist')));
 
-// Function to get current time in Madrid timezone
+// Function to get current time in Madrid timezone and round down to nearest even minute
 function getCurrentMadridTime() {
+    // Get current time in Madrid timezone
     const now = new Date();
     const madridTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Madrid' }));
-    return madridTime.toISOString();
+    
+    // Round down to nearest even minute
+    const minutes = madridTime.getMinutes();
+    const roundedMinutes = Math.floor(minutes / 2) * 2;
+    madridTime.setMinutes(roundedMinutes);
+    madridTime.setSeconds(0);
+    madridTime.setMilliseconds(0);
+    
+    // Format as ISO string with Z suffix
+    return madridTime.toISOString().replace('.000Z', 'Z');
 }
 
 // Function to convert Madrid time to UTC for Garmin data
@@ -40,19 +50,17 @@ function roundTimestamp(timestamp) {
 // Endpoint for emotion prediction
 app.post('/api/predict-emotion', async (req, res) => {
     try {
-        // Use current Madrid time
+        // Get current Madrid time rounded to nearest even minute
         const madridTime = getCurrentMadridTime();
-        const utcTime = convertToUTC(madridTime);
-        
-        console.log('\n=== Data Pipeline Debug ===');
-        console.log('1. Current Timestamp (Madrid):', madridTime);
-        console.log('2. Converted to UTC for Garmin:', utcTime);
+        console.log('\n=== Prediction Request Debug ===');
+        console.log('1. Current Madrid Time (rounded to even minute):', madridTime);
+        console.log('2. Current Madrid Time (local format):', new Date(madridTime).toLocaleString('en-US', { timeZone: 'Europe/Madrid' }));
 
         // Run the Python script to predict emotion
         const pythonScript = path.join(__dirname, '..', 'models', 'predict_emotion.py');
         console.log('\n3. Running Python script:', pythonScript);
         
-        const pythonProcess = spawn('python3', [pythonScript, utcTime], {
+        const pythonProcess = spawn('python3', [pythonScript, madridTime], {
             cwd: path.join(__dirname, '..')
         });
 
@@ -101,7 +109,7 @@ app.post('/api/predict-emotion', async (req, res) => {
             const color = getColorFromPosition(prediction.valence, prediction.arousal);
             console.log('\n10. Calculated color:', color);
 
-            // Return the prediction results with the original Madrid timestamp and color
+            // Return the prediction results with the Madrid timestamp and color
             const response = {
                 valence: prediction.valence,
                 arousal: prediction.arousal,
@@ -111,7 +119,7 @@ app.post('/api/predict-emotion', async (req, res) => {
             };
             
             console.log('\n11. Final response:', response);
-            console.log('=== End of Data Pipeline ===\n');
+            console.log('=== End of Prediction Request ===\n');
             
             res.json(response);
         } catch (parseError) {

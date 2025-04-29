@@ -351,13 +351,11 @@ def main():
     parser.add_argument('timestamp', type=str, help='Timestamp in Madrid time (UTC+2)')
     args = parser.parse_args()
     
-    # Override the timestamp for testing
-    test_timestamp = "2025-04-29T16:18:00"
-    debug_print(f"\nUsing test timestamp: {test_timestamp}")
+    debug_print(f"\nReceived timestamp: {args.timestamp}")
     
     try:
         # Fetch and process data
-        data_point = fetch_and_process_data(test_timestamp)
+        data_point = fetch_and_process_data(args.timestamp)
         if data_point is None:
             print(json.dumps({"error": "No matching data point found"}))
             return
@@ -382,7 +380,7 @@ def main():
             'valence': float(valence),
             'arousal': float(arousal),
             'emotion': emotion,
-            'timestamp': test_timestamp
+            'timestamp': args.timestamp
         }
         print(json.dumps(result))
         
