@@ -11,7 +11,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'dist')));
 
 // Hardcoded timestamp for testing
-const HARDCODED_TIMESTAMP = '2025-04-27T16:46:00Z';
+const HARDCODED_TIMESTAMP = '2025-04-25T12:04:00';
 
 // Function to round timestamp down to nearest even minute
 function roundTimestamp(timestamp) {
@@ -21,14 +21,14 @@ function roundTimestamp(timestamp) {
     date.setMinutes(roundedMinutes);
     date.setSeconds(0);
     date.setMilliseconds(0);
-    return date.toISOString();
+    return date.toISOString().replace('Z', ''); // Remove Z suffix
 }
 
 // Endpoint for emotion prediction
 app.post('/api/predict-emotion', async (req, res) => {
     try {
-        // Get timestamp from request or use hardcoded one
-        const timestamp = req.body.timestamp ? roundTimestamp(req.body.timestamp) : HARDCODED_TIMESTAMP;
+        // Always use hardcoded timestamp for now
+        const timestamp = HARDCODED_TIMESTAMP;
         console.log(`Using timestamp: ${timestamp}`);
 
         // Run the Python script to predict emotion
@@ -61,46 +61,31 @@ app.post('/api/predict-emotion', async (req, res) => {
             return res.status(500).json({ error: 'Error running prediction script', details: stderr });
         }
 
-        // Parse the prediction results
-        const prediction = JSON.parse(stdout);
-        console.log('Prediction results:', prediction);
+        // Parse the prediction results - only use the last line
+        try {
+            const lines = stdout.trim().split('\n');
+            const lastLine = lines[lines.length - 1];
+            console.log('Last line of output:', lastLine);
+            
+            const prediction = JSON.parse(lastLine);
+            console.log('Prediction results:', prediction);
+            
+            if (prediction.error) {
+                return res.status(500).json({ error: prediction.error });
+            }
 
-        // Change the light color based on VA values
-        const lightScript = path.join(__dirname, '..', 'light', 'change_color.py');
-        const lightProcess = spawn('python3', [lightScript, prediction.valence.toString(), prediction.arousal.toString()], {
-            cwd: path.join(__dirname, '..')
-        });
-
-        let lightStdout = '';
-        let lightStderr = '';
-
-        lightProcess.stdout.on('data', (data) => {
-            lightStdout += data.toString();
-        });
-
-        lightProcess.stderr.on('data', (data) => {
-            lightStderr += data.toString();
-        });
-
-        const lightExitCode = await new Promise((resolve, reject) => {
-            lightProcess.on('close', (code) => {
-                resolve(code);
+            // Return the prediction results
+            res.json({
+                predicted_valence: prediction.valence,
+                predicted_arousal: prediction.arousal,
+                predicted_emotion: prediction.emotion,
+                timestamp: timestamp
             });
-            lightProcess.on('error', (err) => {
-                reject(err);
-            });
-        });
-
-        if (lightExitCode !== 0) {
-            return res.status(500).json({ error: 'Error controlling light', details: lightStderr });
+        } catch (parseError) {
+            console.error('Error parsing prediction results:', parseError);
+            console.error('Full stdout:', stdout);
+            return res.status(500).json({ error: 'Error parsing prediction results', details: parseError.message });
         }
-
-        // Return both the prediction and the emotion label
-        res.json({
-            valence: prediction.valence,
-            arousal: prediction.arousal,
-            emotion: prediction.emotion
-        });
 
     } catch (error) {
         console.error('Error:', error);
