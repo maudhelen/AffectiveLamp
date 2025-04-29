@@ -66,15 +66,28 @@ def load_garmin_data(garmin_file):
 
 def find_closest_data_point(df, target_dt):
     """Find the closest data point to the target timestamp."""
+    debug_print("\n=== Finding Closest Data Point ===")
+    debug_print(f"Target timestamp: {target_dt}")
+    
     # Calculate time differences
     time_diff = abs(df['timestamp'] - target_dt)
     closest_idx = time_diff.idxmin()
     closest_time = df.loc[closest_idx, 'timestamp']
     
+    debug_print(f"Closest timestamp found: {closest_time}")
+    debug_print(f"Time difference: {abs((closest_time - target_dt).total_seconds())} seconds")
+    
     # Check if the closest point is within 2 minutes
     if abs((closest_time - target_dt).total_seconds()) <= 120:
+        debug_print("✅ Found valid data point within 2 minutes")
+        debug_print("\nData point values:")
+        for col in df.columns:
+            if col != 'timestamp':
+                debug_print(f"{col}: {df.loc[closest_idx, col]}")
         return closest_idx
-    return None
+    else:
+        debug_print("❌ No data point found within 2 minutes")
+        return None
 
 def fetch_and_process_data(target_timestamp):
     """Fetch Garmin data for the target date and process it."""
@@ -90,9 +103,16 @@ def fetch_and_process_data(target_timestamp):
     else:
         target_dt = target_dt.astimezone(madrid_tz)
     
+    debug_print(f"\n1. Input timestamp (UTC): {target_timestamp}")
+    debug_print(f"2. Converted to Madrid time: {target_dt.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+    
     # Calculate the two previous timestamps (4 minutes back)
     prev_dt_1 = target_dt - timedelta(minutes=2)  # 2 minutes before
     prev_dt_2 = target_dt - timedelta(minutes=4)  # 4 minutes before
+    
+    debug_print(f"\n3. Previous timestamps:")
+    debug_print(f"   - 2 minutes before: {prev_dt_1.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+    debug_print(f"   - 4 minutes before: {prev_dt_2.strftime('%Y-%m-%d %H:%M:%S %Z')}")
     
     # Get all dates we need to fetch
     dates_to_fetch = set([
@@ -101,21 +121,24 @@ def fetch_and_process_data(target_timestamp):
         prev_dt_2.strftime('%Y-%m-%d')
     ])
     
-    debug_print(f"Fetching Garmin data for dates: {', '.join(dates_to_fetch)}")
+    debug_print(f"\n4. Fetching Garmin data for dates: {', '.join(dates_to_fetch)}")
     
     # Fetch Garmin data for each date
     garmin_script = os.path.join(ROOT_DIR, 'data_processing/retrieval/last_x_days.py')
     for date in dates_to_fetch:
+        debug_print(f"\n5. Running Garmin script for {date}")
         subprocess.run(['python', garmin_script, '--target_date', date], check=True)
     debug_print("✅ Garmin data fetched successfully")
     
     # Convert to CSV
     json_to_csv_script = os.path.join(ROOT_DIR, 'data_processing/conversion/json_to_csv.py')
+    debug_print("\n6. Converting Garmin data to CSV")
     subprocess.run(['python', json_to_csv_script], check=True)
     debug_print("✅ Garmin data converted to CSV")
     
     # Load and process the data
     garmin_file = os.path.join(ROOT_DIR, 'data/raw/garmin_health_data.json')
+    debug_print(f"\n7. Loading Garmin data from: {garmin_file}")
     garmin_data = load_garmin_data(garmin_file)
     processed_data = process_garmin_data(garmin_data)
     df = create_dataframe(processed_data)
@@ -126,14 +149,11 @@ def fetch_and_process_data(target_timestamp):
         df['timestamp'] = df['timestamp'].dt.tz_localize('UTC')
     df['timestamp'] = df['timestamp'].dt.tz_convert(madrid_tz)
     
-    # Find the closest timestamps for all three points
-    debug_print("\n=== Timestamp Matching ===")
-    debug_print(f"Looking for data points closest to:")
-    debug_print(f"1. Target: {target_dt.strftime('%Y-%m-%d %H:%M:%S %Z')}")
-    debug_print(f"2. Previous (2min): {prev_dt_1.strftime('%Y-%m-%d %H:%M:%S %Z')}")
-    debug_print(f"3. Previous (4min): {prev_dt_2.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+    debug_print("\n8. Available timestamps in data:")
+    debug_print(df['timestamp'].head())
     
-    # Find closest indices for all three timestamps
+    # Find the closest timestamps for all three points
+    debug_print("\n9. Finding closest data points:")
     target_idx = find_closest_data_point(df, target_dt)
     prev_1_idx = find_closest_data_point(df, prev_dt_1)
     prev_2_idx = find_closest_data_point(df, prev_dt_2)
@@ -144,24 +164,36 @@ def fetch_and_process_data(target_timestamp):
     
     # Get all three rows
     rows = df.iloc[[prev_2_idx, prev_1_idx, target_idx]]
-    debug_print("\nFound matching timestamps:")
+    debug_print("\n10. Found matching timestamps with data:")
     for i, (idx, row) in enumerate(rows.iterrows()):
-        debug_print(f"{i+1}. {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S %Z')}")
+        debug_print(f"\n   Point {i+1}: {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S %Z')}")
+        debug_print("   Raw values:")
+        for col in row.index:
+            if col != 'timestamp':
+                debug_print(f"      {col}: {row[col]}")
     
     # Process the data through the feature engineering pipeline
-    debug_print("\n=== Processing Features ===")
+    debug_print("\n11. Processing features...")
     
     # 1. Handle missing values
-    debug_print("1. Handling missing values...")
+    debug_print("   1.1 Handling missing values...")
     rows = handle_missing_values(rows)
     
     # 2. Add lag features
-    debug_print("2. Adding lag features...")
+    debug_print("   1.2 Adding lag features...")
     rows = add_lag_features(rows, rows.set_index('timestamp'))
     
     # 3. Encode categorical variables
-    debug_print("3. Encoding categorical variables...")
+    debug_print("   1.3 Encoding categorical variables...")
     rows = encode_categorical_variables(rows)
+    
+    debug_print("\n12. Final processed features:")
+    for i, (idx, row) in enumerate(rows.iterrows()):
+        debug_print(f"\n   Point {i+1}: {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S %Z')}")
+        debug_print("   Processed values:")
+        for col in row.index:
+            if col != 'timestamp':
+                debug_print(f"      {col}: {row[col]}")
     
     debug_print("✅ Feature processing complete")
     return rows.iloc[-1]  # Return only the target row
@@ -319,12 +351,22 @@ def main():
     parser.add_argument('timestamp', type=str, help='Timestamp in Madrid time (UTC+2)')
     args = parser.parse_args()
     
+    # Override the timestamp for testing
+    test_timestamp = "2025-04-29T16:18:00"
+    debug_print(f"\nUsing test timestamp: {test_timestamp}")
+    
     try:
         # Fetch and process data
-        data_point = fetch_and_process_data(args.timestamp)
+        data_point = fetch_and_process_data(test_timestamp)
         if data_point is None:
             print(json.dumps({"error": "No matching data point found"}))
             return
+        
+        # Print all available features and their values
+        debug_print("\n=== Available Features and Values ===")
+        for col in data_point.index:
+            if col != 'timestamp':
+                debug_print(f"{col}: {data_point[col]}")
         
         # Prepare features
         X_valence, X_arousal = prepare_features(data_point)
@@ -340,7 +382,7 @@ def main():
             'valence': float(valence),
             'arousal': float(arousal),
             'emotion': emotion,
-            'timestamp': args.timestamp
+            'timestamp': test_timestamp
         }
         print(json.dumps(result))
         

@@ -1,5 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { emotions } from '../utils/emotions';
+import * as d3 from 'd3';
+import { getColorFromPosition } from '../utils/colorUtils';
 
 const getEmotionColor = (emotionName) => {
   const colorMap = {
@@ -21,12 +23,9 @@ const getEmotionColor = (emotionName) => {
   return colorMap[emotionName] || '#4a90e2';
 };
 
-const ValenceArousalGraph = ({ onDataClick }) => {
+const ValenceArousalGraph = ({ onDataClick, clickData }) => {
   const canvasRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 600, height: 600 });
-  const [previewColor, setPreviewColor] = useState(null);
-  const [showConfirmation, setShowConfirmation] = useState(false);
-  const [pendingData, setPendingData] = useState(null);
   const [confirmedMarkers, setConfirmedMarkers] = useState([]);
 
   const findClosestEmotion = (valence, arousal) => {
@@ -81,71 +80,14 @@ const ValenceArousalGraph = ({ onDataClick }) => {
     return madridDate.toISOString();
   };
 
-  // Function to save data to file
-  const saveDataToFile = async (data) => {
-    const roundedTimestamp = roundToNearestTwoMinutes(data.timestamp);
-    const formattedDate = new Date(roundedTimestamp).toISOString();
-    
-    const csvData = `${formattedDate},${data.valence},${data.arousal},${data.closestEmotion.name},${data.color.hue.hue},${data.color.hue.saturation},${data.color.hue.brightness}\n`;
-    
-    console.log('Sending data to server:', csvData);
-    
-    try {
-      const response = await fetch('/api/save-emotion', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ data: csvData })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      if (result.success) {
-        console.log('Data saved successfully to:', result.filePath);
-      } else {
-        console.error('Server error:', result.error);
-        alert('Failed to save emotion data. Please try again.');
-      }
-    } catch (error) {
-      console.error('Error saving data:', error);
-      alert('Failed to save emotion data. Please try again.');
-    }
-  };
-
-  const handleConfirm = async () => {
-    if (pendingData) {
-      // Set the new marker (replacing any previous markers)
-      setConfirmedMarkers([{
-        x: pendingData.x,
-        y: pendingData.y,
-        color: pendingData.color.rgb
-      }]);
-
-      // Save data to file
-      await saveDataToFile(pendingData);
-
-      // Call the original callback
-      onDataClick(pendingData);
-    }
-    setShowConfirmation(false);
-    setPendingData(null);
-  };
-
-  const handleCancel = () => {
-    setShowConfirmation(false);
-    setPendingData(null);
-    setPreviewColor(null);
-  };
+  useEffect(() => {
+    drawGraph();
+  }, [dimensions, confirmedMarkers, clickData]);
 
   const drawGraph = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvasRef.current) return;
 
-    const ctx = canvas.getContext('2d');
+    const ctx = canvasRef.current.getContext('2d');
     if (!ctx) return;
 
     const { width, height } = dimensions;
@@ -239,7 +181,7 @@ const ValenceArousalGraph = ({ onDataClick }) => {
     ctx.fillStyle = '#374151';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    
+
     // Arousal labels
     ctx.fillText('Active', centerX, centerY - radius - 20);
     ctx.fillText('Calm', centerX, centerY + radius + 20);
@@ -279,85 +221,31 @@ const ValenceArousalGraph = ({ onDataClick }) => {
       ctx.lineWidth = 2;
       ctx.stroke();
     });
-  };
 
-  const getColorFromPosition = (valence, arousal) => {
-    // Calculate distance from center (0 to 1)
-    const distance = Math.sqrt(valence * valence + arousal * arousal);
-    
-    // If very close to center, return white
-    if (distance < 0.2) { // Increased white center threshold
-      const whiteIntensity = 1 - (distance / 0.2); // Linear fade from white
-      return {
-        rgb: `rgba(255, 255, 255, ${whiteIntensity})`,
-        hue: { 
-          hue: 0, 
-          saturation: 0, 
-          brightness: Math.round(254 * whiteIntensity)
-        }
-      };
+    // Draw click data marker if exists
+    if (clickData) {
+      const angle = Math.atan2(clickData.arousal, clickData.valence);
+      const distance = Math.sqrt(clickData.valence * clickData.valence + clickData.arousal * clickData.arousal);
+      const scaledDistance = distance * displayRadius;
+      const x = centerX + (scaledDistance * Math.cos(angle));
+      const y = centerY - (scaledDistance * Math.sin(angle));
+
+      // Draw marker
+      ctx.beginPath();
+      ctx.arc(x, y, 10, 0, 2 * Math.PI);
+      ctx.fillStyle = clickData.color.rgb;
+      ctx.fill();
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Add label
+      ctx.fillStyle = '#000';
+      ctx.font = '14px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(clickData.closestEmotion.name, x, y - 15);
     }
-
-    // Determine quadrant and set colors
-    let r, g, b;
-    
-    if (valence >= 0 && arousal >= 0) { // Upper right - GREEN
-      r = 0;
-      g = 255;
-      b = 0;
-    } else if (valence >= 0 && arousal < 0) { // Lower right - YELLOW
-      r = 255;
-      g = 255;
-      b = 0;
-    } else if (valence < 0 && arousal < 0) { // Lower left - BLUE
-      r = 32;
-      g = 151;
-      b = 255;
-    } else { // Upper left - RED
-      r = 255;
-      g = 0;
-      b = 0;
-    }
-
-    // Calculate opacity based on distance from center
-    const opacity = 0.5; // Match the opacity used in the graph
-
-    // Convert to RGB format with opacity
-    const rgb = `rgba(${r}, ${g}, ${b}, ${opacity})`;
-    
-    // Convert to Hue format (using full intensity values for Hue calculation)
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    let h, s, v = max;
-
-    const d = max - min;
-    s = max === 0 ? 0 : d / max;
-
-    if (max === min) {
-      h = 0;
-    } else {
-      switch (max) {
-        case r:
-          h = (g - b) / d + (g < b ? 6 : 0);
-          break;
-        case g:
-          h = (b - r) / d + 2;
-          break;
-        case b:
-          h = (r - g) / d + 4;
-          break;
-      }
-      h /= 6;
-    }
-
-    return {
-      rgb,
-      hue: {
-        hue: Math.round(h * 65535),
-        saturation: Math.round(s * 254),
-        brightness: Math.round(v / 255 * 254)
-      }
-    };
   };
 
   const handleClick = (event) => {
@@ -367,7 +255,7 @@ const ValenceArousalGraph = ({ onDataClick }) => {
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
-
+    
     const { width, height } = dimensions;
     const centerX = width / 2;
     const centerY = height / 2;
@@ -406,9 +294,14 @@ const ValenceArousalGraph = ({ onDataClick }) => {
     const closestEmotion = findClosestEmotion(valence, arousal);
     const color = getColorFromPosition(valence, arousal);
     
-    setPreviewColor(color);
-    setPendingData({
-      timestamp: Date.now(),
+    // Get current timestamp in Madrid timezone and round to nearest even minute
+    const now = new Date();
+    const madridTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Madrid' }));
+    const timestamp = roundToNearestTwoMinutes(madridTime.toISOString());
+    
+    // Call the parent's click handler with the data
+    onDataClick({
+      timestamp,
       valence,
       arousal,
       closestEmotion,
@@ -416,12 +309,7 @@ const ValenceArousalGraph = ({ onDataClick }) => {
       x,
       y
     });
-    setShowConfirmation(true);
   };
-
-  useEffect(() => {
-    drawGraph();
-  }, [dimensions, confirmedMarkers]);
 
   return (
     <div className="relative flex flex-col items-center">
@@ -432,46 +320,6 @@ const ValenceArousalGraph = ({ onDataClick }) => {
         onClick={handleClick}
         className="border border-gray-200 rounded-lg shadow-sm"
       />
-      
-      {/* Confirmation Popup */}
-      {showConfirmation && pendingData && (
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white p-4 rounded-lg shadow-lg border border-gray-200">
-          <div className="mb-4">
-            <h3 className="text-lg font-semibold mb-2">Confirm Emotion</h3>
-            <div className="flex items-center space-x-4">
-              <div 
-                className="w-8 h-8 rounded-full border border-gray-200"
-                style={{ backgroundColor: previewColor.rgb }}
-              />
-              <div className="space-y-1">
-                <p className="text-sm text-gray-600">
-                  Emotion: {pendingData.closestEmotion.name}
-                </p>
-                <p className="text-sm text-gray-600">
-                  Valence: {pendingData.valence.toFixed(2)}, Arousal: {pendingData.arousal.toFixed(2)}
-                </p>
-                <p className="text-sm text-gray-600">
-                  Hue: {previewColor.hue.hue}, Sat: {previewColor.hue.saturation}, Bri: {previewColor.hue.brightness}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="flex justify-end space-x-2">
-            <button
-              onClick={handleCancel}
-              className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleConfirm}
-              className="px-4 py-2 text-sm text-white bg-blue-500 hover:bg-blue-600 rounded"
-            >
-              Confirm
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
