@@ -4,6 +4,9 @@ import json
 import requests
 import time
 
+import urllib3
+urllib3.disable_warnings()
+
 # Get the root directory path
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Add root directory to Python path
@@ -31,13 +34,14 @@ def create_username():
     time.sleep(5)
     
     # Create the username
+    # Might need to change to http:// depending on the default port of the bridge - 80 (http) or 443 (https)
     url = f"http://{BRIDGE_IP}/api"
     data = {
-        "devicetype": "AffectiveLamp#python"
+        "devicetype": "AffectiveLamp#maud"
     }
     
     try:
-        response = requests.post(url, json=data)
+        response = requests.post(url, json=data, verify=False)
         response.raise_for_status()
         
         result = response.json()[0]
