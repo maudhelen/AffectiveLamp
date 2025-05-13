@@ -128,9 +128,8 @@ function App() {
     if (!pendingData) return;
 
     try {
-      // Only save to the appropriate endpoint based on whether it's a prediction
+      // First save the data
       if (pendingData.isPrediction) {
-        // For predictions, only save to predictions.csv
         await fetch('/api/save-prediction', {
           method: 'POST',
           headers: {
@@ -139,7 +138,6 @@ function App() {
           body: JSON.stringify({ data: pendingData }),
         });
       } else {
-        // For manual entries, only save to emotion_data.csv
         await fetch('/api/save-emotion', {
           method: 'POST',
           headers: {
@@ -149,27 +147,53 @@ function App() {
         });
       }
 
-      // Update the lamp color
-      await fetch('/api/control-lamp', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          valence: pendingData.valence,
-          arousal: pendingData.arousal,
-        }),
-      });
-
       // Add the point to the graph data
       setClickData(pendingData);
       
-      // Reset states
+      // Reset states immediately after saving
       setPendingData(null);
       setShowConfirmation(false);
       setPreviewColor(null);
+
+      // Try to update the lamp color after everything else is done
+      try {
+        await fetch('/api/control-lamp', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            valence: pendingData.valence,
+            arousal: pendingData.arousal,
+          }),
+        });
+      } catch (lampError) {
+        console.warn('Could not connect to lamp:', lampError);
+        // Show a temporary message about lamp connection
+        const message = document.createElement('div');
+        message.textContent = 'Could not connect to lamp, but saved to CSV!';
+        message.style.position = 'fixed';
+        message.style.top = '20px';
+        message.style.left = '50%';
+        message.style.transform = 'translateX(-50%)';
+        message.style.backgroundColor = '#4CAF50';
+        message.style.color = 'white';
+        message.style.padding = '10px 20px';
+        message.style.borderRadius = '5px';
+        message.style.zIndex = '1000';
+        document.body.appendChild(message);
+        
+        // Remove the message after 3 seconds
+        setTimeout(() => {
+          document.body.removeChild(message);
+        }, 3000);
+      }
     } catch (error) {
       console.error('Error saving data:', error);
+      // Even if there's an error, try to close the popup
+      setPendingData(null);
+      setShowConfirmation(false);
+      setPreviewColor(null);
     }
   };
 
