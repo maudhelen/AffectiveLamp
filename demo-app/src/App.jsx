@@ -84,6 +84,15 @@ function App() {
           return;
         }
 
+        // Additional check to prevent duplicate predictions
+        if (pendingData && 
+            pendingData.timestamp === data.timestamp && 
+            pendingData.valence === data.valence && 
+            pendingData.arousal === data.arousal) {
+          setStatusMessage('Checking for Garmin data...');
+          return;
+        }
+
         setStatusMessage('New Garmin data found! Making prediction...');
         setIsProcessingPrediction(true);
         
@@ -104,6 +113,14 @@ function App() {
 
         const closestEmotion = findClosestEmotion(data.valence, data.arousal);
         const color = getColorFromPosition(data.valence, data.arousal);
+
+        // Print prediction data
+        console.log('Prediction data:', {
+          timestamp: data.timestamp,
+          valence: data.valence,
+          arousal: data.arousal,
+          emotion: closestEmotion.name
+        });
 
         // Set pending data to trigger the confirmation popup
         setPendingData({
@@ -188,6 +205,7 @@ function App() {
       setClickData(pendingData);
       
       // Reset states immediately after saving
+      const currentPendingData = { ...pendingData }; // Store current data before reset
       setPendingData(null);
       setShowConfirmation(false);
       setPreviewColor(null);
@@ -202,8 +220,8 @@ function App() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            valence: pendingData.valence,
-            arousal: pendingData.arousal,
+            valence: currentPendingData.valence,
+            arousal: currentPendingData.arousal,
           }),
         });
       } catch (lampError) {
@@ -247,8 +265,9 @@ function App() {
         arousal: pendingData.arousal
       });
     }
-    setShowConfirmation(false);
+    // Reset all states
     setPendingData(null);
+    setShowConfirmation(false);
     setPreviewColor(null);
     setIsProcessingPrediction(false);
     setStatusMessage('Checking for Garmin data...');
