@@ -21,16 +21,24 @@ def load_data(DATA_DIR):
 
 def handle_missing_values(data):
     """Handle missing values in the dataset."""
-    # Fill missing sleep scores with median
-    data['sleep_score'] = data['sleep_score'].fillna(data['sleep_score'].median())
+    # Fill missing sleep scores with median, or 50 if all are missing
+    if data['sleep_score'].isna().all():
+        data['sleep_score'] = 75  # Default to middle value
+    else:
+        data['sleep_score'] = data['sleep_score'].fillna(data['sleep_score'].median())
     
     # Create sleep score tiers
     data['sleep_score_tier'] = pd.cut(data['sleep_score'], 
                                     bins=[0, 50, 70, 90, 100], 
                                     labels=['Poor', 'Fair', 'Good', 'Excellent'])
     
-    # Fill missing HRV values based on sleep score tiers
-    data['hrv_avg'] = data['hrv_avg'].fillna(data.groupby('sleep_score_tier', observed=True)['hrv_avg'].transform('mean'))
+    # Fill missing HRV values with median if all are missing in a tier
+    if data['hrv_avg'].isna().all():
+        data['hrv_avg'] = 75  # Default to middle value
+    else:
+        data['hrv_avg'] = data['hrv_avg'].fillna(data.groupby('sleep_score_tier', observed=True)['hrv_avg'].transform('mean'))
+        # Fill any remaining NaN values with overall median
+        data['hrv_avg'] = data['hrv_avg'].fillna(data['hrv_avg'].median())
     
     # Fill missing SpO2 values with median
     data['spo2'] = data['spo2'].fillna(data['spo2'].median())
@@ -44,6 +52,8 @@ def handle_missing_values(data):
     
     # Fill missing body battery values based on time of day
     data['body_battery'] = data['body_battery'].fillna(data.groupby('time_of_day', observed=True)['body_battery'].transform('mean'))
+    # Fill any remaining NaN values with overall median
+    data['body_battery'] = data['body_battery'].fillna(data['body_battery'].median())
     
     # Drop any remaining missing values
     data = data.dropna()
