@@ -11,3 +11,10 @@ run light/create_username.py
 ## Connect the bulb(s)
 Manually follow the steps, when mobile is connected to the same network as the Philips bridge, to add a light
 
+## Connect to garmin
+
+## Start the app
+cd my-va-app
+npm run dev
+
+Start logging emotions
