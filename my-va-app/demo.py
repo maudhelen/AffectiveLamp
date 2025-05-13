@@ -104,8 +104,8 @@ def main():
         
         # Wait 10 seconds before next prediction
         if index < len(df) - 1:
-            print("\nWaiting 10 seconds before next prediction...")
-            time.sleep(10)
+            print("\nWaiting 1 second before next prediction...")
+            time.sleep(1)
     
     # Save results to CSV
     if results:
