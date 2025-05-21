@@ -13,21 +13,21 @@ import os
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-def load_data():
+def load_data(seed=100):
     """Load the processed valence and arousal datasets and use only half of the data."""
     DATA_DIR = os.path.join(os.getcwd(), 'data', 'new')
     
     valence_data = pd.read_csv(os.path.join(DATA_DIR, 'final_valence.csv'))
     arousal_data = pd.read_csv(os.path.join(DATA_DIR, 'final_arousal.csv'))
     
-    # Use only half of the data
-    valence_data = valence_data.sample(frac=0.5, random_state=100)
-    arousal_data = arousal_data.sample(frac=0.5, random_state=100)
+    valence_data = valence_data.sample(frac=0.5, random_state=seed)
+    arousal_data = arousal_data.sample(frac=0.5, random_state=seed)
     
-    print(f"Using {len(valence_data)} samples for valence (50% of original)")
-    print(f"Using {len(arousal_data)} samples for arousal (50% of original)")
+    print(f"[Seed {seed}] Using {len(valence_data)} valence samples")
+    print(f"[Seed {seed}] Using {len(arousal_data)} arousal samples")
     
     return valence_data, arousal_data
+
 
 def prepare_data(data, target_col, always_scale=False, never_scale=False):
     """Prepare data for modeling by splitting features and target."""
@@ -137,12 +137,12 @@ def train_models(X_train, X_test, y_train, y_test):
     best_r2 = -float('inf')
     
     for name, model in models.items():
-        model, rmse, r2, cv_r2 = evaluate_model(model, X_train, X_test, y_train, y_test, name)
+        model, rmse, r2, cv_rmse = evaluate_model(model, X_train, X_test, y_train, y_test, name)
         results.append({
             'Model': name,
             'RMSE': rmse,
+            'CV RMSE': cv_rmse,
             'R2': r2,
-            'CV R2': cv_r2
         })
         
         if r2 > best_r2:
@@ -169,44 +169,13 @@ def save_results(results_df, target_name):
     
     # Round numerical columns to 4 decimal places
     results_df_rounded = results_df.copy()
-    for col in ['RMSE', 'R2', 'CV R2']:
+    for col in ['RMSE', 'R2', 'CV RMSE']:
         if col in results_df_rounded.columns:
             results_df_rounded[col] = results_df_rounded[col].round(4)
     
     # Save as CSV
     csv_path = os.path.join(plots_dir, f'model_comparison_{target_name}_half_data.csv')
     results_df_rounded.to_csv(csv_path, index=False)
-    
-    # Save as HTML table with styling
-    html_path = os.path.join(plots_dir, f'model_comparison_{target_name}_half_data.html')
-    styled_df = results_df_rounded.style\
-        .format({
-            'RMSE': '{:.4f}',
-            'R2': '{:.4f}',
-            'CV R2': '{:.4f}',
-            'RMSE Improvement %': '{:.2f}%',
-            'Full Dataset RMSE': '{:.4f}'
-        })\
-        .background_gradient(subset=['R2', 'CV R2'], cmap='YlGnBu')\
-        .background_gradient(subset=['RMSE'], cmap='YlOrRd_r')\
-        .background_gradient(subset=['RMSE Improvement %'], cmap='YlGnBu')\
-        .set_caption(f'Model Comparison for {target_name.capitalize()} Prediction (Half Data)')\
-        .set_table_styles([
-            {'selector': 'caption',
-             'props': [('font-size', '16px'),
-                      ('font-weight', 'bold'),
-                      ('text-align', 'center'),
-                      ('margin-bottom', '10px')]},
-            {'selector': 'th',
-             'props': [('background-color', '#f8f9fa'),
-                      ('font-weight', 'bold'),
-                      ('text-align', 'center')]},
-            {'selector': 'td',
-             'props': [('text-align', 'center')]}
-        ])
-    
-    with open(html_path, 'w') as f:
-        f.write(styled_df.to_html())
     
     # Create and save bar plot
     plt.figure(figsize=(12, 6))
@@ -223,38 +192,70 @@ def save_results(results_df, target_name):
     print(f"- model_comparison_{target_name}_half_data.png")
 
 def main():
-    # Load data
-    valence_data, arousal_data = load_data()
+    SEEDS = [42, 99, 7, 123, 2024]
+    all_results_v = []
+    all_results_a = []
     
-    # Process and evaluate models for valence (always scaled)
-    print("\nValence Prediction Models (Half Data):")
-    X_train_v, X_test_v, y_train_v, y_test_v, scaler_v = prepare_data(valence_data, 'valence', always_scale=True)
-    results_v, best_model_v = train_models(X_train_v, X_test_v, y_train_v, y_test_v)
-    print("\nValence Model Comparison (Half Data):")
-    print(results_v)
-    save_results(results_v, 'valence')
-    
-    # Process and evaluate models for arousal (never scaled)
-    print("\nArousal Prediction Models (Half Data):")
-    X_train_a, X_test_a, y_train_a, y_test_a, scaler_a = prepare_data(arousal_data, 'arousal', always_scale=True)
-    results_a, best_model_a = train_models(X_train_a, X_test_a, y_train_a, y_test_a)
-    print("\nArousal Model Comparison (Half Data):")
-    print(results_a)
-    save_results(results_a, 'arousal')
-    
-    # Save the best models
-    models_dir = os.path.join(os.getcwd(), 'models', 'trained')
-    os.makedirs(models_dir, exist_ok=True)
-    
-    import joblib
-    joblib.dump(best_model_v, os.path.join(models_dir, 'best_valence_model_half_data.joblib'))
-    joblib.dump(best_model_a, os.path.join(models_dir, 'best_arousal_model_half_data.joblib'))
-    if scaler_v is not None:
-        joblib.dump(scaler_v, os.path.join(models_dir, 'valence_scaler_half_data.joblib'))
-    if scaler_a is not None:
-        joblib.dump(scaler_a, os.path.join(models_dir, 'arousal_scaler_half_data.joblib'))
-    
-    print("\nBest models have been saved in the models/trained directory with '_half_data' suffix.")
+    plots_dir = os.path.join(os.getcwd(), 'plots')
+    os.makedirs(plots_dir, exist_ok=True)
+
+    for seed in SEEDS:
+        print(f"\n=== Running models for seed {seed} ===")
+
+        # Load sampled data
+        valence_data, arousal_data = load_data(seed=seed)
+
+        # Valence
+        print("\nValence Prediction:")
+        X_train_v, X_test_v, y_train_v, y_test_v, _ = prepare_data(valence_data, 'valence', always_scale=True)
+        results_v, _ = train_models(X_train_v, X_test_v, y_train_v, y_test_v)
+        results_v['Seed'] = seed
+        all_results_v.append(results_v)
+
+        # Arousal
+        print("\nArousal Prediction:")
+        X_train_a, X_test_a, y_train_a, y_test_a, _ = prepare_data(arousal_data, 'arousal', always_scale=True)
+        results_a, _ = train_models(X_train_a, X_test_a, y_train_a, y_test_a)
+        results_a['Seed'] = seed
+        all_results_a.append(results_a)
+
+    # Combine and average
+    combined_v = pd.concat(all_results_v)
+    combined_a = pd.concat(all_results_a)
+
+    # Average across seeds
+    avg_results_v = combined_v.groupby("Model").agg({
+        "RMSE": "mean"
+    }).rename(columns={"RMSE": "RMSE Half Data"}).round(4)
+
+    avg_results_a = combined_a.groupby("Model").agg({
+        "RMSE": "mean"
+    }).rename(columns={"RMSE": "RMSE Half Data"}).round(4)
+
+    # Load full dataset RMSEs
+    full_valence_path = os.path.join(plots_dir, 'model_comparison_valence.csv')
+    full_arousal_path = os.path.join(plots_dir, 'model_comparison_arousal.csv')
+
+    full_v = pd.read_csv(full_valence_path)[['Model', 'RMSE']].set_index("Model")
+    full_v = full_v.rename(columns={"RMSE": "RMSE Full Data"})
+
+    full_a = pd.read_csv(full_arousal_path)[['Model', 'RMSE']].set_index("Model")
+    full_a = full_a.rename(columns={"RMSE": "RMSE Full Data"})
+
+    # Merge and compute improvement
+    merged_v = avg_results_v.join(full_v, how="inner")
+    merged_a = avg_results_a.join(full_a, how="inner")
+
+    merged_v["% RMSE Improvement"] = ((merged_v["RMSE Full Data"] - merged_v["RMSE Half Data"]) / merged_v["RMSE Full Data"] * 100).round(2)
+    merged_a["% RMSE Improvement"] = ((merged_a["RMSE Full Data"] - merged_a["RMSE Half Data"]) / merged_a["RMSE Full Data"] * 100).round(2)
+
+    # Save final comparison tables
+    merged_v.to_csv(os.path.join(plots_dir, 'final_valence_rmse_comparison.csv'))
+    merged_a.to_csv(os.path.join(plots_dir, 'final_arousal_rmse_comparison.csv'))
+
+    print("\n📊 Final RMSE comparison tables saved:")
+    print("- final_valence_rmse_comparison.csv")
+    print("- final_arousal_rmse_comparison.csv")
 
 if __name__ == "__main__":
     main() 
