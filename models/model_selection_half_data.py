@@ -49,43 +49,9 @@ def prepare_data(data, target_col, always_scale=False, never_scale=False):
     # Split data into training and testing sets
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
-    if always_scale:
-        print("\nUsing scaled features (explicitly requested)")
-        scaler = StandardScaler()
-        X_train_scaled = scaler.fit_transform(X_train)
-        X_test_scaled = scaler.transform(X_test)
-        return X_train_scaled, X_test_scaled, y_train, y_test, scaler
-    elif never_scale:
-        print("\nUsing unscaled features (explicitly requested)")
-        return X_train, X_test, y_train, y_test, None
-    else:
-        # Try both scaled and unscaled versions
-        scaler = StandardScaler()
-        X_train_scaled = scaler.fit_transform(X_train)
-        X_test_scaled = scaler.transform(X_test)
-        
-        # Use a simple model to test which version performs better
-        test_model = RandomForestRegressor(n_estimators=50, random_state=42)
-        
-        # Test unscaled
-        test_model.fit(X_train, y_train)
-        unscaled_rmse = np.sqrt(mean_squared_error(y_test, test_model.predict(X_test)))
-        
-        # Test scaled
-        test_model.fit(X_train_scaled, y_train)
-        scaled_rmse = np.sqrt(mean_squared_error(y_test, test_model.predict(X_test_scaled)))
-        
-        print(f"\nScaling Test Results:")
-        print(f"Unscaled RMSE: {unscaled_rmse:.4f}")
-        print(f"Scaled RMSE: {scaled_rmse:.4f}")
-        
-        # Choose the better version
-        if scaled_rmse < unscaled_rmse:
-            print("Using scaled features (better performance)")
-            return X_train_scaled, X_test_scaled, y_train, y_test, scaler
-        else:
-            print("Using unscaled features (better performance)")
-            return X_train, X_test, y_train, y_test, None
+    # Always use unscaled features for half data experiments
+    print("\nUsing unscaled features for half data experiment")
+    return X_train, X_test, y_train, y_test, None
 
 def evaluate_model(model, X_train, X_test, y_train, y_test, model_name):
     """Train and evaluate a model."""
@@ -141,7 +107,7 @@ def train_models(X_train, X_test, y_train, y_test):
         results.append({
             'Model': name,
             'RMSE': rmse,
-            'CV RMSE': cv_rmse,
+            # 'CV RMSE': cv_rmse,
             'R2': r2,
         })
         
@@ -157,7 +123,7 @@ def save_results(results_df, target_name):
     os.makedirs(plots_dir, exist_ok=True)
     
     # Read the full dataset results
-    full_data_path = os.path.join(plots_dir, f'model_comparison_{target_name}.csv')
+    full_data_path = os.path.join(plots_dir, f'model_comparison_{target_name}_no_scaling.csv')
     if os.path.exists(full_data_path):
         full_data_results = pd.read_csv(full_data_path)
         
@@ -207,14 +173,14 @@ def main():
 
         # Valence
         print("\nValence Prediction:")
-        X_train_v, X_test_v, y_train_v, y_test_v, _ = prepare_data(valence_data, 'valence', always_scale=True)
+        X_train_v, X_test_v, y_train_v, y_test_v, _ = prepare_data(valence_data, 'valence', never_scale=True)
         results_v, _ = train_models(X_train_v, X_test_v, y_train_v, y_test_v)
         results_v['Seed'] = seed
         all_results_v.append(results_v)
 
         # Arousal
         print("\nArousal Prediction:")
-        X_train_a, X_test_a, y_train_a, y_test_a, _ = prepare_data(arousal_data, 'arousal', always_scale=True)
+        X_train_a, X_test_a, y_train_a, y_test_a, _ = prepare_data(arousal_data, 'arousal', never_scale=True)
         results_a, _ = train_models(X_train_a, X_test_a, y_train_a, y_test_a)
         results_a['Seed'] = seed
         all_results_a.append(results_a)
