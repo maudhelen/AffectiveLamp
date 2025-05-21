@@ -113,9 +113,9 @@ def main():
     labelled_data = pd.merge(non_missing_df, health_data, on='timestamp', how='left')
     
     # Save results
-    combined_df.to_csv(os.path.join(DATA_DIR, 'merged/combined_emotion_data.csv'), index=False)
-    merged_data.to_csv(os.path.join(DATA_DIR, 'merged/merged_data.csv'), index=False)
-    labelled_data.to_csv(os.path.join(DATA_DIR, 'merged/labelled_data.csv'), index=False)
+    combined_df.to_csv(os.path.join(DATA_DIR, 'new/combined_emotion_data.csv'), index=False)
+    merged_data.to_csv(os.path.join(DATA_DIR, 'new/merged_data.csv'), index=False)
+    labelled_data.to_csv(os.path.join(DATA_DIR, 'new/labelled_data.csv'), index=False)
     
     print("\n✅ All data saved successfully!")
 

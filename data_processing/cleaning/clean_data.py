@@ -12,7 +12,7 @@ def setup_data_path():
 
 def load_data(DATA_DIR):
     """Load and preprocess the data."""
-    data = pd.read_csv(DATA_DIR + '/merged/labelled_data.csv')
+    data = pd.read_csv(DATA_DIR + '/new/labelled_data.csv')
     # Convert timestamp to datetime, handling timezone-aware timestamps
     data['timestamp'] = pd.to_datetime(data['timestamp'])
     if data['timestamp'].dt.tz is None:

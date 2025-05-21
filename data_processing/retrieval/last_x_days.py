@@ -34,7 +34,7 @@ print(os.getcwd())
 os.makedirs(DATA_DIR, exist_ok=True)  # Ensure directory exists
 jsonfile = "garmin_health_data.json"
 
-def fetch_garmin_health_data(days=75, target_date=None):
+def fetch_garmin_health_data(days=110, target_date=None):
     # Authenticate and get Garmin client
     client = login_to_garmin()
 
@@ -129,7 +129,7 @@ if __name__ == "__main__":
     # Add command line argument for target date
     parser = argparse.ArgumentParser(description='Fetch Garmin health data')
     parser.add_argument('--target_date', type=str, help='Specific date to fetch data for (YYYY-MM-DD)')
-    parser.add_argument('--days', type=int, default=75, help='Number of days to fetch (default: 75)')
+    parser.add_argument('--days', type=int, default=100, help='Number of days to fetch (default: 75)')
     args = parser.parse_args()
     
     fetch_garmin_health_data(days=args.days, target_date=args.target_date)
