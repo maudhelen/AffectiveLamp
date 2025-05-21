@@ -293,17 +293,25 @@ def prepare_features(data):
 def predict_emotion(X_valence, X_arousal):
     """Predict valence and arousal using the trained models."""
     debug_print("\n=== Making Predictions ===")
-    debug_print("1. Loading models...")
+    debug_print("1. Loading models and scalers...")
     try:
-        # Load the models using absolute paths (no scaling version)
-        valence_model = joblib.load(os.path.join(ROOT_DIR, 'models', 'trained', 'best_valence_model_no_scaling.joblib'))
-        arousal_model = joblib.load(os.path.join(ROOT_DIR, 'models', 'trained', 'best_arousal_model_no_scaling.joblib'))
-        debug_print("✅ Models loaded")
+        # Load the scalers and models using absolute paths
+        valence_scaler = joblib.load(os.path.join(ROOT_DIR, 'models', 'trained', 'valence_scaler.joblib'))
+        arousal_scaler = joblib.load(os.path.join(ROOT_DIR, 'models', 'trained', 'arousal_scaler.joblib'))
+        valence_model = joblib.load(os.path.join(ROOT_DIR, 'models', 'trained', 'best_valence_model.joblib'))
+        arousal_model = joblib.load(os.path.join(ROOT_DIR, 'models', 'trained', 'best_arousal_model.joblib'))
+        debug_print("✅ Models and scalers loaded")
         
-        debug_print("\n2. Making predictions...")
-        # Make predictions directly without scaling
-        valence = valence_model.predict(X_valence)[0]
-        arousal = arousal_model.predict(X_arousal)[0]
+        debug_print("\n2. Scaling features...")
+        # Scale both valence and arousal features
+        X_valence_scaled = valence_scaler.transform(X_valence)
+        X_arousal_scaled = arousal_scaler.transform(X_arousal)
+        debug_print("✅ Features scaled")
+        
+        debug_print("\n3. Making predictions...")
+        # Make predictions
+        valence = valence_model.predict(X_valence_scaled)[0]
+        arousal = arousal_model.predict(X_arousal_scaled)[0]
         debug_print(f"Valence prediction: {valence}")
         debug_print(f"Arousal prediction: {arousal}")
         debug_print("✅ Predictions made")
