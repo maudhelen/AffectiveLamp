@@ -52,14 +52,10 @@ app.post('/api/predict-emotion', async (req, res) => {
     try {
         // Get current Madrid time rounded to nearest even minute
         const madridTime = getCurrentMadridTime();
-        console.log('\n=== Prediction Request Debug ===');
-        console.log('1. Current Madrid Time (rounded to even minute):', madridTime);
-        console.log('2. Current Madrid Time (local format):', new Date(madridTime).toLocaleString('en-US', { timeZone: 'Europe/Madrid' }));
+        console.log('Predicting emotion for:', madridTime);
 
         // Run the Python script to predict emotion
         const pythonScript = path.join(__dirname, '..', 'models', 'predict_emotion.py');
-        console.log('\n3. Running Python script:', pythonScript);
-        
         const pythonProcess = spawn('python3', [pythonScript, madridTime], {
             cwd: path.join(__dirname, '..')
         });
@@ -69,21 +65,17 @@ app.post('/api/predict-emotion', async (req, res) => {
 
         pythonProcess.stdout.on('data', (data) => {
             stdout += data.toString();
-            console.log('\n4. Python script output:', data.toString());
         });
 
         pythonProcess.stderr.on('data', (data) => {
             stderr += data.toString();
-            console.log('\n5. Python script error:', data.toString());
         });
 
         const exitCode = await new Promise((resolve, reject) => {
             pythonProcess.on('close', (code) => {
-                console.log('\n6. Python script exit code:', code);
                 resolve(code);
             });
             pythonProcess.on('error', (err) => {
-                console.log('\n7. Python script error:', err);
                 reject(err);
             });
         });
@@ -96,10 +88,7 @@ app.post('/api/predict-emotion', async (req, res) => {
         try {
             const lines = stdout.trim().split('\n');
             const lastLine = lines[lines.length - 1];
-            console.log('\n8. Last line of output:', lastLine);
-            
             const prediction = JSON.parse(lastLine);
-            console.log('\n9. Parsed prediction:', prediction);
             
             if (prediction.error) {
                 return res.status(500).json({ error: prediction.error });
@@ -107,7 +96,6 @@ app.post('/api/predict-emotion', async (req, res) => {
 
             // Get color from position
             const color = getColorFromPosition(prediction.valence, prediction.arousal);
-            console.log('\n10. Calculated color:', color);
 
             // Return the prediction results with the Madrid timestamp and color
             const response = {
@@ -118,52 +106,17 @@ app.post('/api/predict-emotion', async (req, res) => {
                 color: color
             };
             
-            console.log('\n11. Final response:', response);
-            console.log('=== End of Prediction Request ===\n');
-            
             res.json(response);
         } catch (parseError) {
-            console.error('\nError parsing prediction results:', parseError);
-            console.error('Full stdout:', stdout);
+            console.error('Error parsing prediction results:', parseError);
             return res.status(500).json({ error: 'Error parsing prediction results', details: parseError.message });
         }
 
     } catch (error) {
-        console.error('\nError:', error);
+        console.error('Error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
-
-// Add this helper function at the top of the file
-function getColorFromPosition(valence, arousal) {
-    // Calculate hue based on quadrant
-    let hue;
-    if (valence >= 0 && arousal >= 0) {
-        hue = 120; // Green for positive valence and arousal
-    } else if (valence >= 0 && arousal < 0) {
-        hue = 60; // Yellow for positive valence, negative arousal
-    } else if (valence < 0 && arousal < 0) {
-        hue = 240; // Blue for negative valence and arousal
-    } else {
-        hue = 0; // Red for negative valence, positive arousal
-    }
-
-    // Calculate saturation based on distance from center
-    const distance = Math.sqrt(valence * valence + arousal * arousal);
-    const saturation = Math.min(1, distance * 2);
-
-    // Calculate brightness based on arousal
-    const brightness = 0.5 + (arousal * 0.5);
-
-    return {
-        rgb: hsvToRgb(hue, saturation, brightness),
-        hue: {
-            hue: hue,
-            saturation: saturation,
-            brightness: brightness
-        }
-    };
-}
 
 // Helper function to convert HSV to RGB
 function hsvToRgb(h, s, v) {
@@ -184,7 +137,44 @@ function hsvToRgb(h, s, v) {
         case 5: r = v; g = p; b = q; break;
     }
 
-    return `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
+    return {
+        r: Math.round(r * 255),
+        g: Math.round(g * 255),
+        b: Math.round(b * 255)
+    };
+}
+
+// Modify getColorFromPosition to use the new RGB format
+function getColorFromPosition(valence, arousal) {
+    // Calculate hue based on quadrant
+    let hue;
+    if (valence >= 0 && arousal >= 0) {
+        hue = 120; // Green for positive valence and arousal
+    } else if (valence >= 0 && arousal < 0) {
+        hue = 60; // Yellow for positive valence, negative arousal
+    } else if (valence < 0 && arousal < 0) {
+        hue = 240; // Blue for negative valence and arousal
+    } else {
+        hue = 0; // Red for negative valence, positive arousal
+    }
+
+    // Calculate saturation based on distance from center
+    const distance = Math.sqrt(valence * valence + arousal * arousal);
+    const saturation = Math.min(1, distance * 2);
+
+    // Calculate brightness based on arousal
+    const brightness = 0.5 + (arousal * 0.5);
+
+    const rgb = hsvToRgb(hue, saturation, brightness);
+    return {
+        rgb: `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`,
+        rgbValues: rgb,
+        hue: {
+            hue: hue,
+            saturation: saturation,
+            brightness: brightness
+        }
+    };
 }
 
 // Endpoint to control the lamp
@@ -195,6 +185,29 @@ app.post('/api/control-lamp', async (req, res) => {
         // Validate input
         if (typeof valence !== 'number' || typeof arousal !== 'number') {
             return res.status(400).json({ error: 'Valence and arousal must be numbers' });
+        }
+
+        // Get color from position
+        const color = getColorFromPosition(valence, arousal);
+        
+        // Send color to LED system using the rgbValues directly
+        try {
+            const ledResponse = await fetch('http://10.205.3.54:8000/control/set-color', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    color: color.rgbValues
+                })
+            });
+
+            if (!ledResponse.ok) {
+                throw new Error(`LED system responded with status: ${ledResponse.status}`);
+            }
+        } catch (ledError) {
+            console.warn('Could not connect to LED system:', ledError);
+            // Continue with Philips Hue control even if LED system fails
         }
 
         // Path to the change_color.py script
@@ -322,7 +335,5 @@ app.get('/api/emotion-data', (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Current directory: ${__dirname}`);
-  console.log(`Data will be saved to: ${path.join(__dirname, 'data', 'emotion_data.csv')}`);
+    console.log(`Server running on port ${PORT}`);
 }); 
