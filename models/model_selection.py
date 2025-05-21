@@ -12,6 +12,8 @@ from sklearn.metrics import mean_squared_error, r2_score
 import os
 import matplotlib.pyplot as plt
 import seaborn as sns
+import joblib
+
 
 def load_data():
     """Load the processed valence and arousal datasets."""
@@ -108,8 +110,8 @@ def evaluate_model(model, X_train, X_test, y_train, y_test, model_name):
     baseline_rmse = np.sqrt(mean_squared_error(y_test, baseline_pred))
     
     print(f"RMSE: {rmse:.4f} (Baseline: {baseline_rmse:.4f})")
-    print(f"R2 Score: {r2:.4f}")
     print(f"Cross-validation RMSE: {cv_rmse:.4f} (±{cv_std:.4f})")
+    print(f"R2 Score: {r2:.4f}")
     
     return model, rmse, r2, cv_rmse
 
@@ -131,12 +133,12 @@ def train_models(X_train, X_test, y_train, y_test):
     best_r2 = -float('inf')
     
     for name, model in models.items():
-        model, rmse, r2, cv_r2 = evaluate_model(model, X_train, X_test, y_train, y_test, name)
+        model, rmse, r2, cv_rmse = evaluate_model(model, X_train, X_test, y_train, y_test, name)
         results.append({
             'Model': name,
             'RMSE': rmse,
             'R2': r2,
-            'CV R2': cv_r2
+            'CV RMSE': cv_rmse
         })
         
         if r2 > best_r2:
@@ -152,7 +154,7 @@ def save_results(results_df, target_name):
     
     # Round numerical columns to 4 decimal places
     results_df_rounded = results_df.copy()
-    for col in ['RMSE', 'R2', 'CV R2']:
+    for col in ['RMSE', 'R2', 'CV RMSE']:
         if col in results_df_rounded.columns:
             results_df_rounded[col] = results_df_rounded[col].round(4)
     
@@ -160,29 +162,29 @@ def save_results(results_df, target_name):
     csv_path = os.path.join(plots_dir, f'model_comparison_{target_name}.csv')
     results_df_rounded.to_csv(csv_path, index=False)
     
-    # Save as HTML table with styling
-    html_path = os.path.join(plots_dir, f'model_comparison_{target_name}.html')
-    styled_df = results_df_rounded.style\
-        .format({'RMSE': '{:.4f}', 'R2': '{:.4f}', 'CV R2': '{:.4f}'})\
-        .background_gradient(subset=['R2', 'CV R2'], cmap='YlGnBu')\
-        .background_gradient(subset=['RMSE'], cmap='YlOrRd_r')\
-        .set_caption(f'Model Comparison for {target_name.capitalize()} Prediction')\
-        .set_table_styles([
-            {'selector': 'caption',
-             'props': [('font-size', '16px'),
-                      ('font-weight', 'bold'),
-                      ('text-align', 'center'),
-                      ('margin-bottom', '10px')]},
-            {'selector': 'th',
-             'props': [('background-color', '#f8f9fa'),
-                      ('font-weight', 'bold'),
-                      ('text-align', 'center')]},
-            {'selector': 'td',
-             'props': [('text-align', 'center')]}
-        ])
+    # # Save as HTML table with styling
+    # html_path = os.path.join(plots_dir, f'model_comparison_{target_name}.html')
+    # styled_df = results_df_rounded.style\
+    #     .format({'RMSE': '{:.4f}', 'R2': '{:.4f}', 'CV RMSE': '{:.4f}'})\
+    #     .background_gradient(subset=['R2', 'CV RMSE'], cmap='YlGnBu')\
+    #     .background_gradient(subset=['RMSE'], cmap='YlOrRd_r')\
+    #     .set_caption(f'Model Comparison for {target_name.capitalize()} Prediction')\
+    #     .set_table_styles([
+    #         {'selector': 'caption',
+    #          'props': [('font-size', '16px'),
+    #                   ('font-weight', 'bold'),
+    #                   ('text-align', 'center'),
+    #                   ('margin-bottom', '10px')]},
+    #         {'selector': 'th',
+    #          'props': [('background-color', '#f8f9fa'),
+    #                   ('font-weight', 'bold'),
+    #                   ('text-align', 'center')]},
+    #         {'selector': 'td',
+    #          'props': [('text-align', 'center')]}
+    #     ])
     
-    with open(html_path, 'w') as f:
-        f.write(styled_df.to_html())
+    # with open(html_path, 'w') as f:
+    #     f.write(styled_df.to_html())
     
     # Create and save bar plot
     plt.figure(figsize=(12, 6))
@@ -362,7 +364,6 @@ def main():
     models_dir = os.path.join(os.getcwd(), 'models', 'trained')
     os.makedirs(models_dir, exist_ok=True)
     
-    import joblib
     joblib.dump(best_model_v_tuned, os.path.join(models_dir, 'best_valence_model.joblib'))
     joblib.dump(best_model_a_tuned, os.path.join(models_dir, 'best_arousal_model.joblib'))
     if scaler_v is not None:
